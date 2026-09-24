@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Juniper Topology Generator</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+
+  header { background: #1e3a5f; padding: 20px 40px; border-bottom: 2px solid #38bdf8; display: flex; align-items: center; gap: 12px; }
+  header h1 { color: #38bdf8; font-size: 1.4rem; }
+  header p  { color: #94a3b8; font-size: 0.85rem; margin-top: 3px; }
+
+  .container { max-width: 1100px; margin: 0 auto; padding: 30px 20px; }
+
+  .card { background: #1e293b; border-radius: 12px; padding: 24px; margin-bottom: 24px; border: 1px solid #334155; }
+  .card label { display: block; color: #38bdf8; font-weight: 600; margin-bottom: 8px; }
+  textarea { width: 100%; height: 80px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 12px; color: #e2e8f0; font-size: 0.95rem; resize: vertical; }
+  textarea:focus { outline: none; border-color: #38bdf8; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .chip { background: #0f172a; border: 1px solid #334155; border-radius: 20px; padding: 4px 14px; font-size: 0.8rem; cursor: pointer; color: #94a3b8; transition: all 0.2s; }
+  .chip:hover { border-color: #38bdf8; color: #38bdf8; }
+
+  .btn-generate { margin-top: 16px; background: #38bdf8; color: #0f172a; border: none; border-radius: 8px; padding: 12px 32px; font-size: 1rem; font-weight: 700; cursor: pointer; transition: background 0.2s; }
+  .btn-generate:hover { background: #7dd3fc; }
+  .btn-generate:disabled { background: #334155; color: #64748b; cursor: not-allowed; }
+
+  .error { color: #f87171; background: #3b1f1f; padding: 12px 16px; border-radius: 8px; margin-top: 12px; display: none; }
+
+  #output { display: none; margin-top: 24px; }
+  .tabs { display: flex; gap: 4px; margin-bottom: 20px; }
+  .tab { padding: 8px 22px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; background: #0f172a; color: #94a3b8; border: 1px solid #334155; transition: all 0.2s; }
+  .tab.active { background: #38bdf8; color: #0f172a; border-color: #38bdf8; font-weight: 700; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .tools-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding: 12px 16px; background: #0f172a; border-radius: 8px; border: 1px solid #334155; }
+  .feedback-box { display: flex; gap: 8px; align-items: center; }
+  .btn-feedback { background: #1e293b; color: #e2e8f0; border: 1px solid #334155; padding: 6px 12px; border-radius: 6px; cursor: pointer; transition: all 0.2s; font-size: 0.9rem; }
+  .btn-feedback:hover { background: #334155; }
+  .btn-feedback.active-good { background: #166534; border-color: #4ade80; color: #fff; }
+  .btn-feedback.active-bad { background: #7f1d1d; border-color: #f87171; color: #fff; }
+  .modify-box { display: flex; gap: 8px; flex: 1; max-width: 500px; }
+  .modify-box input { flex: 1; background: #1e293b; border: 1px solid #334155; border-radius: 6px; padding: 8px 12px; color: #e2e8f0; outline: none; }
+  .modify-box input:focus { border-color: #38bdf8; }
+  .btn-modify { background: #38bdf8; color: #0f172a; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; }
+  .btn-modify:hover { background: #7dd3fc; }
+  .btn-modify:disabled { background: #334155; color: #64748b; cursor: not-allowed; }
+
+  .diagram-wrap { background: #0f172a; border-radius: 10px; padding: 24px; }
+  .topo-title { color: #38bdf8; font-size: 1.1rem; font-weight: 700; margin-bottom: 4px; }
+  .topo-scenario { color: #94a3b8; font-size: 0.85rem; margin-bottom: 24px; }
+  .devices-row { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 28px; }
+  .dev-box { border-radius: 10px; padding: 14px 20px; min-width: 140px; text-align: center; }
+  .dev-box.SSR { background:#1e3a5f; border:2px solid #38bdf8; }
+  .dev-box.SRX { background:#3b1f1f; border:2px solid #f87171; }
+  .dev-box.EX  { background:#1a2e1a; border:2px solid #4ade80; }
+  .dev-box.AP  { background:#2d1f3b; border:2px solid #a78bfa; }
+  .dev-type { font-size:0.7rem; font-weight:700; letter-spacing:1px; margin-bottom:4px; }
+  .dev-name { font-size:1rem; font-weight:700; }
+  .dev-rid { font-size:0.72rem; color:#94a3b8; margin-top:4px; }
+
+  .links-title { color:#94a3b8; font-size:0.75rem; text-transform:uppercase; letter-spacing:1px; margin-bottom:12px; }
+  .link-row { display:flex; align-items:center; gap:10px; background:#1e293b; border-radius:8px; padding:10px 14px; margin-bottom:8px; font-size:0.85rem; }
+  .link-end { min-width: 120px; }
+  .link-dev { color:#38bdf8; font-weight:600; }
+  .link-if { color:#94a3b8; font-size:0.75rem; }
+  .link-ip { color:#fbbf24; font-size:0.75rem; }
+  .link-middle { flex:1; text-align:center; }
+  .link-line { border-top:2px dashed #334155; margin-bottom:4px; }
+  .link-ospf { color:#4ade80; font-size:0.72rem; }
+
+  .dev-card { background:#0f172a; border-radius:8px; padding:16px; margin-bottom:12px; border-left:3px solid #38bdf8; }
+  .dev-card h3 { color:#e2e8f0; margin-bottom:8px; }
+  .dev-detail { color:#94a3b8; font-size:0.85rem; display:flex; gap:20px; flex-wrap:wrap; }
+  .dev-detail span b { color:#e2e8f0; }
+
+  .tc-item { background:#0f172a; border-radius:8px; padding:12px 16px; margin-bottom:8px; border-left:3px solid #38bdf8; font-size:0.9rem; display:flex; gap:10px; }
+  .tc-num { color:#38bdf8; font-weight:700; min-width:24px; }
+
+  .spinner { display:inline-block; width:16px; height:16px; border:2px solid #0f172a; border-top:2px solid #38bdf8; border-radius:50%; animation:spin 0.8s linear infinite; vertical-align:middle; margin-right:6px; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>🔷 Juniper Topology Generator</h1>
+    <p>Describe your test scenario — get a complete Juniper network topology instantly</p>
+  </div>
+</header>
+
+<div class="container">
+  <div class="card">
+    <label for="scenario">📝 Describe your test scenario</label>
+    <textarea id="scenario" placeholder="e.g. Test OSPF between SSR and SRX with route failover"></textarea>
+    <div class="chips">
+      <span class="chip" onclick="useExample(this)">OSPF testing on SSR via Mist</span>
+      <span class="chip" onclick="useExample(this)">BGP failover with SSR and SRX</span>
+      <span class="chip" onclick="useExample(this)">EX switch VLAN testing with AP</span>
+      <span class="chip" onclick="useExample(this)">SRX firewall policy with SSR WAN</span>
+      <span class="chip" onclick="useExample(this)">SSR dual WAN with SRX HA</span>
+    </div>
+    <button class="btn-generate" id="genBtn" onclick="generate()">⚡ Generate Topology</button>
+    <div class="error" id="errBox"></div>
+  </div>
+
+  <div id="output" class="card">
+    <div class="tools-bar">
+      <div class="feedback-box">
+        <span style="font-size:0.85rem;color:#94a3b8">Rate this topology:</span>
+        <button class="btn-feedback" id="btnGood" onclick="sendFeedback(true)">👍 Good</button>
+        <button class="btn-feedback" id="btnBad" onclick="sendFeedback(false)">👎 Bad</button>
+      </div>
+      <div class="modify-box">
+        <input type="text" id="modifyInst" placeholder="e.g. Add IPv6 to all links">
+        <button class="btn-modify" id="btnModify" onclick="modify()">Modify</button>
+      </div>
+    </div>
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('diagram')">📊 Diagram</div>
+      <div class="tab" onclick="switchTab('devices')">📦 Devices</div>
+      <div class="tab" onclick="switchTab('testcases')">✅ Test Cases</div>
+    </div>
+    <div id="panel-diagram" class="panel active"></div>
+    <div id="panel-devices" class="panel"></div>
+    <div id="panel-testcases" class="panel"></div>
+  </div>
+</div>
+
+<script>
+  let currentTopologyId = null;
+  const typeColor = { SSR:'#38bdf8', SRX:'#f87171', EX:'#4ade80', AP:'#a78bfa' };
+
+  function useExample(el) { document.getElementById('scenario').value = el.textContent.trim(); }
+
+  function switchTab(name) {
+    const names = ['diagram','devices','testcases'];
+    document.querySelectorAll('.tab').forEach((t, i) => { t.classList.toggle('active', names[i] === name); });
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('panel-' + name).classList.add('active');
+  }
+
+  async function generate() {
+    const scenario = document.getElementById('scenario').value.trim();
+    if (!scenario) return;
+    const btn = document.getElementById('genBtn');
+    const err = document.getElementById('errBox');
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Generating...';
+    err.style.display = 'none'; document.getElementById('output').style.display = 'none';
+    try {
+      const res = await fetch('/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ scenario }) });
+      if (!res.ok) { const e = await res.json(); throw new Error(e.detail || 'Server error'); }
+      const data = await res.json();
+      currentTopologyId = data.id;
+      resetFeedbackUI();
+      renderDiagram(data.topology); renderDevices(data.topology); renderTestCases(data.topology);
+      document.getElementById('output').style.display = 'block'; switchTab('diagram');
+    } catch (e) { err.textContent = '❌ ' + e.message; err.style.display = 'block'; }
+    finally { btn.disabled = false; btn.innerHTML = '⚡ Generate Topology'; }
+  }
+
+  async function modify() {
+    if (!currentTopologyId) return;
+    const inst = document.getElementById('modifyInst').value.trim();
+    if (!inst) return;
+    const btn = document.getElementById('btnModify');
+    const err = document.getElementById('errBox');
+    btn.disabled = true; btn.innerHTML = '...'; err.style.display = 'none';
+    try {
+      const res = await fetch('/modify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: currentTopologyId, instruction: inst }) });
+      if (!res.ok) { const e = await res.json(); throw new Error(e.detail || 'Server error'); }
+      const data = await res.json();
+      currentTopologyId = data.id;
+      resetFeedbackUI();
+      document.getElementById('modifyInst').value = '';
+      renderDiagram(data.topology); renderDevices(data.topology); renderTestCases(data.topology);
+    } catch (e) { err.textContent = '❌ ' + e.message; err.style.display = 'block'; }
+    finally { btn.disabled = false; btn.innerHTML = 'Modify'; }
+  }
+
+  async function sendFeedback(good) {
+    if (!currentTopologyId) return;
+    try {
+      await fetch('/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: currentTopologyId, good }) });
+      document.getElementById('btnGood').classList.toggle('active-good', good);
+      document.getElementById('btnBad').classList.toggle('active-bad', !good);
+    } catch (e) { console.error(e); }
+  }
+
+  function resetFeedbackUI() {
+    document.getElementById('btnGood').classList.remove('active-good');
+    document.getElementById('btnBad').classList.remove('active-bad');
+  }
+
+  function renderDiagram(topo) {
+    let html = `<div class="diagram-wrap"><div class="topo-title">${topo.name}</div><div class="topo-scenario">Scenario: ${topo.scenario}</div><div class="devices-row">`;
+    topo.devices.forEach(d => {
+      const c = typeColor[d.type] || '#94a3b8';
+      html += `<div class="dev-box ${d.type}"><div class="dev-type" style="color:${c}">${d.type}</div><div class="dev-name">${d.name}</div>
+        ${d.router_id ? `<div class="dev-rid">RID: ${d.router_id}</div>` : ''} ${d.loopback ? `<div class="dev-rid">Lo: ${d.loopback}</div>` : ''}</div>`;
+    });
+    html += `</div><div class="links-title">Links</div>`;
+    topo.links.forEach(lk => {
+      html += `<div class="link-row"><div class="link-end"><div class="link-dev">${lk.from_device}</div><div class="link-if">${lk.from_iface}</div>
+        ${lk.ip_from ? `<div class="link-ip">${lk.ip_from}</div>` : ''}</div><div class="link-middle"><div class="link-line"></div>
+        ${lk.ospf_area ? `<div class="link-ospf">OSPF area ${lk.ospf_area}</div>` : ''}</div><div class="link-end" style="text-align:right">
+        <div class="link-dev">${lk.to_device}</div><div class="link-if">${lk.to_iface}</div>${lk.ip_to ? `<div class="link-ip">${lk.ip_to}</div>` : ''}</div></div>`;
+    });
+    html += `</div>`; document.getElementById('panel-diagram').innerHTML = html;
+  }
+
+  function renderDevices(topo) {
+    let html = '';
+    topo.devices.forEach(d => {
+      html += `<div class="dev-card"><h3>${d.name} <span style="font-size:0.8rem;color:${typeColor[d.type]||'#94a3b8'}">[${d.type}]</span></h3>
+        <div class="dev-detail">${d.router_id ? `<span>Router-ID: <b>${d.router_id}</b></span>` : ''} ${d.loopback ? `<span>Loopback: <b>${d.loopback}</b></span>` : ''}
+        ${d.vlans && d.vlans.length ? `<span>VLANs: <b>${d.vlans.map(v=>v.vlan_id+'('+v.name+')').join(', ')}</b></span>` : ''}</div></div>`;
+    });
+    document.getElementById('panel-devices').innerHTML = html || '<p style="color:#94a3b8">No devices.</p>';
+  }
+
+  function renderTestCases(topo) {
+    let html = '';
+    (topo.test_cases || []).forEach((tc, i) => { html += `<div class="tc-item"><span class="tc-num">${i+1}.</span><span>${tc}</span></div>`; });
+    document.getElementById('panel-testcases').innerHTML = html || '<p style="color:#94a3b8">No test cases generated.</p>';
+  }
+</script>
+</body>
+</html>
